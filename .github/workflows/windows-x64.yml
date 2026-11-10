@@ -44,7 +44,7 @@ jobs:
           robocopy "$b\media" "$o\media" /E /NFL /NDL /NJH /NJS | Out-Null
           robocopy "$b\system" "$o\system" /E /XF *.dll /NFL /NDL /NJH /NJS | Out-Null
           robocopy "userdata" "$o\userdata" /E /XF advancedsettings.xml guisettings.xml mediasources.xml passwords.xml profiles.xml sources.xml /NFL /NDL /NJH /NJS | Out-Null
-          Copy-Item LICENSE.md, privacy-policy.txt, known_issues.txt $o
+          foreach ($f in 'LICENSE.md','privacy-policy.txt','known_issues.txt') { if (Test-Path $f) { Copy-Item $f $o } }
           Compress-Archive -Path "$o\*" -DestinationPath "kodi-22rc2-invokerfix-win64-portable.zip" -CompressionLevel Optimal
           "{0:N0} MB" -f ((Get-Item kodi-22rc2-invokerfix-win64-portable.zip).Length / 1MB)
       - uses: actions/upload-artifact@v4
