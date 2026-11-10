@@ -19,7 +19,7 @@ jobs:
           meson --version; ninja --version
       - name: Download prebuilt dependencies and MSYS2
         shell: cmd
-        working-directory: toolsuildsteps\windowsd
+        working-directory: tools/buildsteps/windows/x64
         run: |
           call download-dependencies.bat
           if errorlevel 1 exit /b 1
