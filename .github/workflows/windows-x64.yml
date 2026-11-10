@@ -47,6 +47,8 @@ jobs:
           foreach ($f in 'LICENSE.md','privacy-policy.txt','known_issues.txt') { if (Test-Path $f) { Copy-Item $f $o } }
           Compress-Archive -Path "$o\*" -DestinationPath "kodi-22rc2-invokerfix-win64-portable.zip" -CompressionLevel Optimal
           "{0:N0} MB" -f ((Get-Item kodi-22rc2-invokerfix-win64-portable.zip).Length / 1MB)
+          # robocopy exits 1-7 on success; don't let that fail the step
+          exit 0
       - uses: actions/upload-artifact@v4
         with:
           name: kodi-22rc2-invokerfix-win64-portable
