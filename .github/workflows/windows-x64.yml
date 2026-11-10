@@ -1,0 +1,39 @@
+name: Windows x64 build
+on:
+  workflow_dispatch:
+  push:
+    branches: [piers-rc2-invokerfix]
+    paths: ['.github/workflows/windows-x64.yml', 'xbmc/**', 'version.txt', 'cmake/**', 'project/**']
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        shell: cmd
+        run: cmake -G "Visual Studio 17 2022" -A x64 -T host=x64 -S . -B kodi-build.x64
+      - name: Build (Release)
+        shell: cmd
+        run: cmake --build kodi-build.x64 --config Release --parallel
+      - name: Assemble portable folder
+        shell: pwsh
+        run: |
+          $b = "kodi-build.x64\Release"; $o = "portable\Kodi"
+          New-Item -ItemType Directory -Force $o | Out-Null
+          if (!(Test-Path "$b\Kodi.exe")) { throw "Kodi.exe not produced" }
+          Copy-Item "$b\Kodi.exe" $o
+          Copy-Item "$b\*.dll" $o
+          Copy-Item "$b\libbluray-*.jar" $o -ErrorAction SilentlyContinue
+          robocopy "$b\addons" "$o\addons" /E /NFL /NDL /NJH /NJS | Out-Null
+          robocopy "$b\media" "$o\media" /E /NFL /NDL /NJH /NJS | Out-Null
+          robocopy "$b\system" "$o\system" /E /XF *.dll /NFL /NDL /NJH /NJS | Out-Null
+          robocopy "userdata" "$o\userdata" /E /XF advancedsettings.xml guisettings.xml mediasources.xml passwords.xml profiles.xml sources.xml /NFL /NDL /NJH /NJS | Out-Null
+          Copy-Item LICENSE.md, privacy-policy.txt, known_issues.txt $o
+          Compress-Archive -Path "$o\*" -DestinationPath "kodi-22rc2-invokerfix-win64-portable.zip" -CompressionLevel Optimal
+          "{0:N0} MB" -f ((Get-Item kodi-22rc2-invokerfix-win64-portable.zip).Length / 1MB)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kodi-22rc2-invokerfix-win64-portable
+          path: kodi-22rc2-invokerfix-win64-portable.zip
+          if-no-files-found: error

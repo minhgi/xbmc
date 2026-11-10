@@ -1,0 +1,74 @@
+name: Android arm64-v8a APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [piers-rc2-invokerfix]
+    paths: ['.github/workflows/android-arm64.yml', 'xbmc/**', 'version.txt', 'tools/**']
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    env:
+      NDK_VERSION: 28.2.13676358
+      NDK_API: 24
+      TOOLS: /home/runner/android-tools
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift /usr/local/lib/node_modules || true
+          df -h /
+      - name: Install packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y autoconf automake autopoint bison build-essential ccache cmake curl default-jdk flex gawk gettext git gperf libcurl4-openssl-dev libtool lib32stdc++6 lib32z1 lib32z1-dev nasm ninja-build pkg-config python3 python3-dev swig unzip yasm zip zlib1g-dev
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - name: Android SDK / NDK
+        run: |
+          SDK=${ANDROID_HOME:-/usr/local/lib/android/sdk}
+          echo "SDK=$SDK" >> $GITHUB_ENV
+          yes | $SDK/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null || true
+          $SDK/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;37.0.0" "ndk;$NDK_VERSION"
+          ls $SDK/ndk
+      - name: Restore depends cache
+        id: depcache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ env.TOOLS }}/xbmc-depends
+            ${{ env.TOOLS }}/xbmc-tarballs
+          key: android-arm64-depends-${{ hashFiles('tools/depends/**') }}
+      - name: Configure depends
+        run: |
+          mkdir -p $TOOLS/xbmc-tarballs
+          cd tools/depends && ./bootstrap
+          ./configure --with-tarballs=$TOOLS/xbmc-tarballs --host=aarch64-linux-android \
+            --with-sdk-path=$SDK --with-ndk-path=$SDK/ndk/$NDK_VERSION --with-ndk-api=$NDK_API \
+            --prefix=$TOOLS/xbmc-depends --enable-debug=no
+      - name: Build depends
+        if: steps.depcache.outputs.cache-hit != 'true'
+        run: cd tools/depends && make -j$(nproc) && df -h /
+      - name: Save depends cache
+        if: steps.depcache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ env.TOOLS }}/xbmc-depends
+            ${{ env.TOOLS }}/xbmc-tarballs
+          key: android-arm64-depends-${{ hashFiles('tools/depends/**') }}
+      - name: Configure Kodi
+        run: make -C tools/depends/target/cmakebuildsys
+      - name: Build Kodi
+        run: cd build && make -j$(nproc)
+      - name: Package APK
+        run: cd build && make apk
+      - name: Collect APK
+        run: |
+          mkdir -p out && find . -name 'kodiapp-*.apk' -not -path './out/*' -exec cp -v {} out/ \;
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kodi-22rc2-invokerfix-android-arm64
+          path: out/*.apk
+          if-no-files-found: error
