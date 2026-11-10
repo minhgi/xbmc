@@ -31,6 +31,10 @@ jobs:
           yes | $SDK/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null || true
           $SDK/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;37.0.0" "ndk;$NDK_VERSION"
           ls $SDK/ndk
+      - name: Create debug signing key
+        run: |
+          mkdir -p ~/.android
+          [ -f ~/.android/debug.keystore ] || keytool -genkey -keystore ~/.android/debug.keystore -alias androiddebugkey -dname "CN=Android Debug,O=Android,C=US" -keypass android -storepass android -keyalg RSA -keysize 2048 -validity 10000
       - name: Restore depends cache
         id: depcache
         uses: actions/cache/restore@v4
